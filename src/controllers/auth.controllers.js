@@ -33,6 +33,7 @@ const registerUser = asyncHandler(async (req, res) => {
     fullname,
     email,
     password,
+    role: "user"
   });
 
 

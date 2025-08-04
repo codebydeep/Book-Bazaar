@@ -33,4 +33,14 @@ const authMiddleware =  asyncHandler(async(req, res, next) => {
     next()
 })
 
-export { authMiddleware }
+
+const checkAdmin = asyncHandler(async(req, res, next) => {
+    if(req.user.role !== "admin"){
+        return res.status(400).json(
+            new ApiError(400, "Access denied - Admins only")
+        )
+    }
+    next()
+})
+
+export { authMiddleware, checkAdmin }

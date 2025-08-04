@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true
         },
+        role: {
+            type: String,
+            enum: ["user", "admin"],
+            default: "user"
+        },
         accessToken: {
             type: String,
         },
@@ -47,7 +52,10 @@ userSchema.methods.isPasswordMatched = async function(password){
 
 userSchema.methods.generateAccessToken = function(){
     return jwt.sign(
-        {id: this._id},
+        {
+            id: this._id, 
+            role: this.role
+        },
         process.env.ACCESS_TOKEN_SECRET,
         {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
@@ -58,7 +66,8 @@ userSchema.methods.generateAccessToken = function(){
 userSchema.methods.generateRefreshToken = function(){
     return jwt.sign(
         {
-            id: this._id
+            id: this._id,
+            role: this.role
         },
         process.env.REFRESH_TOKEN_SECRET,
         {
@@ -69,4 +78,4 @@ userSchema.methods.generateRefreshToken = function(){
 
 const User = mongoose.model("User", userSchema)
 
-export default User
+export default User;
