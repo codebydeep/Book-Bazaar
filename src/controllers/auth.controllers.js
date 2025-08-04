@@ -1,104 +1,147 @@
-import User from "../models/user.model.js"
-import {asyncHandler} from "../utils/async-handler.js"
-import {ApiError} from "../utils/api-error.js"
-import {ApiResponse} from "../utils/api-response.js"
+import User from "../models/user.model.js";
+import { asyncHandler } from "../utils/async-handler.js";
+import { ApiError } from "../utils/api-error.js";
+import { ApiResponse } from "../utils/api-response.js";
 
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const registerUser = asyncHandler(async (req, res) => {
-    const { fullname, email, password } = req.body
+  const { fullname, email, password } = req.body;
 
-    if(!fullname || !email || !password){
-        res.status(400).json(new ApiError(400, "All the details are required", ["fullname", "email", "password"]
-        ))
-    }
+  if (!fullname || !email || !password) {
+    return res
+      .status(400)
+      .json(
+        new ApiError(400, "All the details are required", [
+          "fullname",
+          "email",
+          "password",
+        ]),
+      );
+  }
 
-    const existingUser = await User.findOne({email})
+  const existingUser = await User.findOne({ email });
 
-    if(existingUser){
-        res.status(400).json(
-            new ApiError(400, false, ["User already exists"])
-        )
-    }
+  if (existingUser) {
+    return res
+      .status(400)
+      .json(new ApiError(400, false, ["User already exists"]));
+  }
 
-    const hashed = await bcrypt.hash(password, 10)
+  const user = await User.create({
+    fullname,
+    email,
+    password,
+  });
 
-    const user = await User.create({
-        fullname,
-        email,
-        password: hashed,
-    })
 
-    const token = jwt.sign({id: user._id}, process.env.JWT_SECRET,
-        {
-            expiresIn: process.env.JWT_EXPIRY
-        }
-    );
+  const createdUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  )
 
-    await user.save()
+  const accessToken = user.generateAccessToken()
 
-    res.cookie("jwt", token, {
-        httpOnly: true,
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 24*60*60*1000,
-    })
+  const refreshToken = user.generateRefreshToken()
 
-    res.status(201).json(
-        new ApiResponse(201, "User registered Successfully", user)
-    )
-})
+  user.refreshToken = refreshToken
+  await user.save({ validateBeforeSave: false});
 
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 15,
+  });
+  
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, "User registered Successfully", createdUser));
+});
 
 const loginUser = asyncHandler(async (req, res) => {
-    const { email, password } = req.body
+  const { email, password } = req.body;
 
-    if(!email || !password){
-        res.status(400).json(
-            new ApiError(400, ["Invalid credentials"])
-        )
-    }
+  if (!email || !password) {
+    return res.status(400).json(new ApiError(400, ["Invalid credentials"]));
+  }
 
-    const user = await User.findOne({email})
+  const user = await User.findOne({ email });
 
-    const isMatched = bcrypt.compare(password, user.password)
+  const isMatched = await user.isPasswordMatched(password)
 
-    if(!isMatched){
-        res.status(400).json(
-            new ApiError(400, ["Invalid credentials"])
-        )
-    }
+  if (!isMatched) {
+    return res.status(400).json(new ApiError(400, ["Invalid credentials"]));
+  }
 
-    const token = jwt.sign({id: user._id}, process.env.JWT_SECRET,
+  const loginUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  )
+
+  const accessToken = await user.generateAccessToken()
+
+  const refreshToken = await user.generateRefreshToken()
+
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 15,
+  });
+  
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.status(201).json(new ApiResponse(201, "User LoggedIn", loginUser));
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+    await User.findByIdAndUpdate(
+        req.user._id,
         {
-            expiresIn: process.env.JWT_EXPIRY
+            $unset: {
+                refreshToken: 1,
+            }
+        },
+        {
+            new: true,
         }
-    );
-
-    res.cookie("jwt", token, {
-        httpOnly: true,
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 24*60*60*1000,
-    })
-       
-
-    res.status(201).json(
-        new ApiResponse(201, "User LoggedIn", user)
     )
-})
 
-const logoutUser = asyncHandler(async(req, res) => {
-     res.clearCookie("jwt", {
-        httpOnly: true,
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === "production",
-    })
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    sameSite: "strict",
+  });
+  
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    sameSite: "strict",
+  });
 
-    res.status(201).json(
-        new ApiResponse(201, "User LoggedOut")
-    )
-})
+  res.status(201).json(new ApiResponse(201, {}, "User LoggedOut"));
+});
 
-export { registerUser, loginUser, logoutUser }
+const getProfile = asyncHandler(async (req, res) => {
+  res
+    .status(201)
+    .json(new ApiResponse(201, "Profile fetched Successfully", req.user));
+});
+
+export { 
+    registerUser, 
+    loginUser, 
+    logoutUser, 
+    getProfile 
+};
