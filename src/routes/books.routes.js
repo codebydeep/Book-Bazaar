@@ -1,8 +1,12 @@
 import { Router } from "express";
+
 import { addBook, deleteBook, getBookById, getBooks, updateBook } from "../controllers/books.controllers.js";
 import { authMiddleware, checkAdmin } from "../middlewares/auth.middleware.js";
+import keyMiddleware from "../middlewares/apiKey.middleware.js";
 
 const booksRoutes = Router()
+
+booksRoutes.use(keyMiddleware)
 
 booksRoutes.post("/", authMiddleware, checkAdmin, addBook)
 booksRoutes.get("/", getBooks)

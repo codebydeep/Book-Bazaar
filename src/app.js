@@ -1,5 +1,6 @@
 import express from "express"
 import cookieParser from "cookie-parser"
+
 import authRoutes from "./routes/auth.routes.js"
 import booksRoutes from "./routes/books.routes.js"
 import healthCheckRoutes from "./routes/healthCheck.routes.js"

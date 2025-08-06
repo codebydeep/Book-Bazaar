@@ -1,4 +1,5 @@
 import { Router } from "express";
+
 import { getProfile, loginUser, logoutUser, registerUser } from "../controllers/auth.controllers.js";
 import { authMiddleware, checkAdmin } from "../middlewares/auth.middleware.js";
 import { generateApiKey } from "../controllers/apiKey.controllers.js";
