@@ -35,9 +35,9 @@ const authMiddleware =  asyncHandler(async(req, res, next) => {
 
 
 const checkAdmin = asyncHandler(async(req, res, next) => {
-    if(req.user.role !== "admin"){
+    if(req.user?.role !== "admin"){
         return res.status(400).json(
-            new ApiError(400, "Access denied - Admins only")
+            new ApiError(400, ["Access denied - Admins only"])
         )
     }
     next()
