@@ -41,13 +41,4 @@ const generateApiKey = asyncHandler(async(req, res) => {
     )
 })
 
-const answer = asyncHandler(async(req, res) => {
-    res.status(201).json(
-        new ApiResponse(
-            201,
-            "Api Key is Authenticated after middleware loose!"
-        )
-    )
-})
-
 export { generateApiKey, answer }

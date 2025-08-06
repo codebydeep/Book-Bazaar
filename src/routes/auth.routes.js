@@ -1,10 +1,13 @@
 import { Router } from "express";
 import { getProfile, loginUser, logoutUser, registerUser } from "../controllers/auth.controllers.js";
 import { authMiddleware, checkAdmin } from "../middlewares/auth.middleware.js";
-import { answer, generateApiKey } from "../controllers/apiKey.controllers.js";
+import { generateApiKey } from "../controllers/apiKey.controllers.js";
 import keyMiddleware from "../middlewares/apiKey.middleware.js";
+import limiter from "../utils/rate-limiter.js";
 
 const authRoutes = Router()
+
+authRoutes.use(keyMiddleware)
 
 authRoutes.post("/register", registerUser)
 authRoutes.post("/login", loginUser)
@@ -14,8 +17,6 @@ authRoutes.get("/me", authMiddleware, getProfile)
 
 authRoutes.get("/check-admin", authMiddleware, checkAdmin)
 
-authRoutes.post("/api-key", authMiddleware, generateApiKey)
-
-authRoutes.get("/api-key/authenticated", authMiddleware, keyMiddleware, answer)
+authRoutes.post("/api-key", authMiddleware, limiter, generateApiKey)
 
 export default authRoutes
